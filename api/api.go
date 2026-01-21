@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -28,6 +29,53 @@ type Response struct {
 	Data  any    `json:"data,omitempty"`
 }
 
+func NewHandler(db *Application) http.Handler {
+	r := chi.NewMux()
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.Logger)
+	r.Post("/api/users", handleUserPost(db))
+
+	return r
+}
+
+func handleUserPost(db *Application) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var bodyUser User
+
+		if err := json.NewDecoder(r.Body).Decode(&bodyUser); err != nil {
+			sendJSON(w, Response{Error: "invalid Body"}, http.StatusUnprocessableEntity)
+			return
+		}
+
+		if db == nil || db.Data == nil {
+			sendJSON(w, Response{Error: "Internal Server Error"}, http.StatusInternalServerError)
+			return
+		}
+
+		if len(strings.TrimSpace(bodyUser.FirstName)) < 2 || len(strings.TrimSpace(bodyUser.FirstName)) > 20 {
+			sendJSON(w, Response{Error: "O nome precisa ter no máximo 20 caracteres e no mínimo 2."}, http.StatusBadRequest)
+			return
+		}
+
+		if len(strings.TrimSpace(bodyUser.LastName)) < 2 || len(strings.TrimSpace(bodyUser.LastName)) > 20 {
+			sendJSON(w, Response{Error: "O sobrenome precisa ter no máximo 20 caracteres e no mínimo 2."}, http.StatusBadRequest)
+			return
+		}
+
+		if len(strings.TrimSpace(bodyUser.Biography)) < 20 || len(strings.TrimSpace(bodyUser.Biography)) > 450 {
+			sendJSON(w, Response{Error: "A biografia precisa ter no mínimo 20 caracteres e no máximo 450."}, http.StatusBadRequest)
+			return
+		}
+
+		userID := uuid.New()
+		bodyUser.Id = Id(userID)
+		db.Data[Id(userID)] = bodyUser
+		sendJSON(w, Response{Data: bodyUser}, http.StatusCreated)
+	}
+
+}
+
 func sendJSON(w http.ResponseWriter, resp Response, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	data, err := json.Marshal(resp)
@@ -41,13 +89,4 @@ func sendJSON(w http.ResponseWriter, resp Response, status int) {
 		slog.Error("error ao enviar a resposta:", "error", err)
 		return
 	}
-}
-
-func NewHandler(db Application) http.Handler {
-	r := chi.NewMux()
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
-
-	return r
 }
