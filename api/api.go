@@ -76,12 +76,22 @@ func handleUserPost(db *Application) http.HandlerFunc {
 
 }
 
-//func handleUserGet(db *Application) http.HandlerFunc {
-//	return func(w http.ResponseWriter, r *http.Request) {
-//
-//	}
-//
-//}
+func handleUserGet(db *Application) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		if db == nil || db.Data == nil {
+			sendJSON(w, Response{Error: "Internal Server Error"}, http.StatusInternalServerError)
+		}
+
+		users := make([]User, 0, len(db.Data))
+
+		for _, value := range db.Data {
+			users = append(users, value)
+		}
+		sendJSON(w, Response{Data: users}, http.StatusOK)
+	}
+
+}
 
 func sendJSON(w http.ResponseWriter, resp Response, status int) {
 	w.Header().Set("Content-Type", "application/json")
