@@ -36,6 +36,7 @@ func NewHandler(db *Application) http.Handler {
 	r.Use(middleware.Logger)
 	r.Post("/api/users", handleUserPost(db))
 	r.Get("/api/users", handleUserGet(db))
+	r.Get("/api/users/{id}", handleUserGetWithParams(db))
 	return r
 }
 
@@ -89,6 +90,28 @@ func handleUserGet(db *Application) http.HandlerFunc {
 			users = append(users, value)
 		}
 		sendJSON(w, Response{Data: users}, http.StatusOK)
+	}
+
+}
+
+func handleUserGetWithParams(db *Application) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := chi.URLParam(r, "id")
+		idParsed, err := uuid.Parse(idStr)
+
+		if err != nil {
+			sendJSON(w, Response{Error: "Digite um ID Válido"}, http.StatusBadRequest)
+			return
+		}
+
+		id := Id(idParsed)
+		user, ok := db.Data[id]
+		if !ok {
+			sendJSON(w, Response{Error: "User not found."}, http.StatusNotFound)
+			return
+		}
+		sendJSON(w, Response{Data: user}, http.StatusOK)
+
 	}
 
 }
