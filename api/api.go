@@ -35,7 +35,7 @@ func NewHandler(db *Application) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Post("/api/users", handleUserPost(db))
-
+	r.Get("/api/users", handleUserGet(db))
 	return r
 }
 
@@ -75,6 +75,13 @@ func handleUserPost(db *Application) http.HandlerFunc {
 	}
 
 }
+
+//func handleUserGet(db *Application) http.HandlerFunc {
+//	return func(w http.ResponseWriter, r *http.Request) {
+//
+//	}
+//
+//}
 
 func sendJSON(w http.ResponseWriter, resp Response, status int) {
 	w.Header().Set("Content-Type", "application/json")

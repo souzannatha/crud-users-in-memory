@@ -33,8 +33,8 @@ func run() error {
 	return nil
 }
 
-func newApplication() api.Application {
-	return api.Application{
+func newApplication() *api.Application {
+	return &api.Application{
 		Data: make(map[api.Id]api.User),
 	}
 }
