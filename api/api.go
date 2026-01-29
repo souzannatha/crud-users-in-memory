@@ -37,6 +37,7 @@ func NewHandler(db *Application) http.Handler {
 	r.Post("/api/users", handleUserPost(db))
 	r.Get("/api/users", handleUserGet(db))
 	r.Get("/api/users/{id}", handleUserGetWithParams(db))
+	r.Put("/api/users/{id}", handleUserPut(db))
 	return r
 }
 
@@ -100,20 +101,66 @@ func handleUserGetWithParams(db *Application) http.HandlerFunc {
 		idParsed, err := uuid.Parse(idStr)
 
 		if err != nil {
-			sendJSON(w, Response{Error: "Digite um ID Válido"}, http.StatusBadRequest)
+			sendJSON(w, Response{Error: "invalid user id"}, http.StatusBadRequest)
 			return
+		}
+
+		if db == nil || db.Data == nil {
+			sendJSON(w, Response{Error: "internal server error"}, http.StatusInternalServerError)
 		}
 
 		id := Id(idParsed)
 		user, ok := db.Data[id]
 		if !ok {
-			sendJSON(w, Response{Error: "User not found."}, http.StatusNotFound)
+			sendJSON(w, Response{Error: "user not found."}, http.StatusNotFound)
 			return
 		}
 		sendJSON(w, Response{Data: user}, http.StatusOK)
 
 	}
 
+}
+
+func handleUserPut(db *Application) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idSrt := chi.URLParam(r, "id")
+		idParsed, err := uuid.Parse(idSrt)
+
+		if err != nil {
+			sendJSON(w, Response{Error: "invalid user id"}, http.StatusBadRequest)
+			return
+		}
+
+		if db == nil || db.Data == nil {
+			sendJSON(w, Response{Error: "internal server error"}, http.StatusInternalServerError)
+			return
+		}
+
+		id := Id(idParsed)
+		_, ok := db.Data[id]
+		if !ok {
+			sendJSON(w, Response{Error: "user not found"}, http.StatusNotFound)
+			return
+		}
+
+		var bodyUser User
+
+		if err := json.NewDecoder(r.Body).Decode(&bodyUser); err != nil {
+			sendJSON(w, Response{Error: "invalid Body"}, http.StatusBadRequest)
+			return
+		}
+
+		if strings.TrimSpace(bodyUser.FirstName) == "" || strings.TrimSpace(bodyUser.LastName) == "" || strings.TrimSpace(bodyUser.Biography) == "" {
+			sendJSON(w, Response{Error: "missing required fields"}, http.StatusBadRequest)
+			return
+		}
+
+		bodyUser.Id = id
+		db.Data[id] = bodyUser
+
+		sendJSON(w, Response{Data: bodyUser}, http.StatusOK)
+
+	}
 }
 
 func sendJSON(w http.ResponseWriter, resp Response, status int) {
