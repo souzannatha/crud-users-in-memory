@@ -34,14 +34,15 @@ func NewHandler(db *Application) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
-	r.Post("/api/users", handleUserPost(db))
-	r.Get("/api/users", handleUserGet(db))
-	r.Get("/api/users/{id}", handleUserGetWithParams(db))
-	r.Put("/api/users/{id}", handleUserPut(db))
+	r.Post("/api/users", Insert(db))
+	r.Get("/api/users", FindAll(db))
+	r.Get("/api/users/{id}", FindById(db))
+	r.Put("/api/users/{id}", Update(db))
+	r.Delete("/api/users/{id}", Delete(db))
 	return r
 }
 
-func handleUserPost(db *Application) http.HandlerFunc {
+func Insert(db *Application) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var bodyUser User
 
@@ -78,11 +79,12 @@ func handleUserPost(db *Application) http.HandlerFunc {
 
 }
 
-func handleUserGet(db *Application) http.HandlerFunc {
+func FindAll(db *Application) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		if db == nil || db.Data == nil {
 			sendJSON(w, Response{Error: "Internal Server Error"}, http.StatusInternalServerError)
+			return
 		}
 
 		users := make([]User, 0, len(db.Data))
@@ -92,10 +94,9 @@ func handleUserGet(db *Application) http.HandlerFunc {
 		}
 		sendJSON(w, Response{Data: users}, http.StatusOK)
 	}
-
 }
 
-func handleUserGetWithParams(db *Application) http.HandlerFunc {
+func FindById(db *Application) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idStr := chi.URLParam(r, "id")
 		idParsed, err := uuid.Parse(idStr)
@@ -107,6 +108,7 @@ func handleUserGetWithParams(db *Application) http.HandlerFunc {
 
 		if db == nil || db.Data == nil {
 			sendJSON(w, Response{Error: "internal server error"}, http.StatusInternalServerError)
+			return
 		}
 
 		id := Id(idParsed)
@@ -121,7 +123,7 @@ func handleUserGetWithParams(db *Application) http.HandlerFunc {
 
 }
 
-func handleUserPut(db *Application) http.HandlerFunc {
+func Update(db *Application) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idSrt := chi.URLParam(r, "id")
 		idParsed, err := uuid.Parse(idSrt)
@@ -159,6 +161,34 @@ func handleUserPut(db *Application) http.HandlerFunc {
 		db.Data[id] = bodyUser
 
 		sendJSON(w, Response{Data: bodyUser}, http.StatusOK)
+
+	}
+}
+
+func Delete(db *Application) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := chi.URLParam(r, "id")
+		idParsed, err := uuid.Parse(idStr)
+
+		if err != nil {
+			sendJSON(w, Response{Error: "invalid user id"}, http.StatusBadRequest)
+			return
+		}
+
+		if db == nil || db.Data == nil {
+			sendJSON(w, Response{Error: "internal server error"}, http.StatusInternalServerError)
+			return
+		}
+
+		id := Id(idParsed)
+		user, ok := db.Data[id]
+		if !ok {
+			sendJSON(w, Response{Error: "user not found"}, http.StatusNotFound)
+			return
+		}
+
+		delete(db.Data, id)
+		sendJSON(w, Response{Data: user}, http.StatusOK)
 
 	}
 }
